@@ -1,3 +1,5 @@
+Demo: https://companychicago.com/html-cleaner/
+
 What this tool removes:
 All CSS classes and IDs
 All div and span tags
