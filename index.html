@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Cleaner - Dark Mode</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/theme/monokai.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.12/mode/markdown/markdown.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            line-height: 1.6;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            color: #4fc3f7;
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #b0b0b0;
+            font-size: 1rem;
+        }
+
+        .main-content {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            min-height: 0;
+            max-height: calc(100vh - 300px);
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .main-content.vertical-layout {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            max-height: calc(100vh - 300px);
+        }
+
+        .main-content.vertical-layout .section {
+            padding: 25px 30px;
+        }
+
+        .main-content.vertical-layout .editor-container {
+            margin: 10px 15px;
+            min-height: 100px;
+        }
+
+        /* Horizontal layout gets equal padding on all sides */
+        .main-content:not(.vertical-layout) .section {
+            padding: 20px 20px 50px 20px;
+            margin: 0;
+        }
+
+        .main-content:not(.vertical-layout) .editor-container {
+            min-height: 120px;
+            margin: 15px 0;
+        }
+
+        .section {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px 20px 50px 20px;
+            border: 1px solid #404040;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .section h2 {
+            color: #4fc3f7;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .editor-container {
+            flex: 1;
+            border: 1px solid #505050;
+            border-radius: 6px;
+            overflow: auto;
+            min-height: 120px;
+            max-height: calc(100vh - 450px);
+            margin: 10px 0;
+            padding: 5px;
+        }
+
+        .CodeMirror {
+            height: auto !important;
+            min-height: 100px;
+            max-height: calc(100vh - 500px);
+            font-size: 14px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            padding: 10px;
+        }
+
+        .controls {
+            text-align: center;
+            padding: 15px 0;
+            flex-shrink: 0;
+            border-top: 1px solid #404040;
+            margin-top: 10px;
+        }
+
+        .btn {
+            background: #4fc3f7;
+            color: #1a1a1a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 0 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #29b6f6;
+            transform: translateY(-1px);
+        }
+
+        .btn.secondary {
+            background: #666;
+            color: #e0e0e0;
+        }
+
+        .btn.secondary:hover {
+            background: #777;
+        }
+
+        .features {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #404040;
+            margin-top: 10px;
+            flex-shrink: 0;
+        }
+
+        .features h3 {
+            color: #4fc3f7;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .features ul {
+            list-style: none;
+            color: #b0b0b0;
+            font-size: 13px;
+            columns: 2;
+            column-gap: 30px;
+        }
+
+        .features li {
+            padding: 3px 0;
+            position: relative;
+            padding-left: 15px;
+            break-inside: avoid;
+        }
+
+        .features li::before {
+            content: "✓";
+            color: #4caf50;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .status {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: #e0e0e0;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 12px;
+            border: 1px solid #555;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .status.show {
+            opacity: 1;
+        }
+
+        .layout-toggle {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #4fc3f7;
+            color: #1a1a1a;
+            border: none;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .layout-toggle:hover {
+            background: #29b6f6;
+            transform: translateY(-1px);
+        }
+
+        .layout-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-block;
+        }
+
+        .layout-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: currentColor;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content:not(.vertical-layout) {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .layout-toggle {
+                top: 10px;
+                right: 10px;
+                font-size: 11px;
+                padding: 6px 12px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .features ul {
+                columns: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="layout-toggle" onclick="toggleLayout()" id="layoutToggle">
+            <span class="layout-icon" id="layoutIcon">
+                <svg viewBox="0 0 24 24">
+                    <rect x="2" y="3" width="20" height="4" rx="1"></rect>
+                    <rect x="2" y="10" width="20" height="4" rx="1"></rect>
+                    <rect x="2" y="17" width="20" height="4" rx="1"></rect>
+                </svg>
+            </span>
+            <span id="layoutText">Rows</span>
+        </button>
+        
+        <div class="header">
+            <h1>HTML Cleaner</h1>
+            <p>Strip all styling, scripts, and non-traditional HTML elements</p>
+        </div>
+
+        <div class="main-content">
+            <div class="section">
+                <h2>Input HTML</h2>
+                <div class="editor-container">
+                    <textarea id="input" placeholder="Paste your HTML code here..."></textarea>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Clean HTML Output</h2>
+                <div class="editor-container">
+                    <textarea id="output" readonly placeholder="Cleaned HTML will appear here..."></textarea>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Markdown Output</h2>
+                <div class="editor-container">
+                    <textarea id="markdown" readonly placeholder="Markdown conversion will appear here..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="cleanHTML()">Clean HTML</button>
+            <button class="btn" onclick="convertToMarkdown()">Convert to Markdown</button>
+            <button class="btn secondary" onclick="clearAll()">Clear All</button>
+            <button class="btn secondary" onclick="copyOutput('html')">Copy HTML</button>
+            <button class="btn secondary" onclick="copyOutput('markdown')">Copy Markdown</button>
+        </div>
+
+        <div class="features">
+            <h3>What this tool removes:</h3>
+            <ul>
+                <li>All CSS classes and IDs</li>
+                <li>All div and span tags</li>
+                <li>All JavaScript and event handlers</li>
+                <li>All style attributes and CSS</li>
+                <li>Script and style tags</li>
+                <li>Link and meta tags</li>
+                <li>Non-traditional HTML elements</li>
+                <li>Framework-specific attributes</li>
+                <li>Data attributes</li>
+                <li>Comments and extra whitespace</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <script>
+        let inputEditor, outputEditor, markdownEditor;
+        let isVerticalLayout = false;
+
+        // Initialize CodeMirror editors
+        document.addEventListener('DOMContentLoaded', function() {
+            inputEditor = CodeMirror.fromTextArea(document.getElementById('input'), {
+                mode: 'xml',
+                theme: 'monokai',
+                lineNumbers: true,
+                autoCloseTags: true,
+                matchBrackets: true,
+                indentUnit: 2,
+                tabSize: 2,
+                lineWrapping: true,
+                placeholder: 'Paste your HTML code here...',
+                viewportMargin: Infinity
+            });
+
+            outputEditor = CodeMirror.fromTextArea(document.getElementById('output'), {
+                mode: 'xml',
+                theme: 'monokai',
+                lineNumbers: true,
+                readOnly: true,
+                autoCloseTags: true,
+                matchBrackets: true,
+                indentUnit: 2,
+                tabSize: 2,
+                lineWrapping: true,
+                placeholder: 'Cleaned HTML will appear here...',
+                viewportMargin: Infinity
+            });
+
+            markdownEditor = CodeMirror.fromTextArea(document.getElementById('markdown'), {
+                mode: 'markdown',
+                theme: 'monokai',
+                lineNumbers: true,
+                readOnly: true,
+                indentUnit: 2,
+                tabSize: 2,
+                lineWrapping: true,
+                placeholder: 'Markdown conversion will appear here...',
+                viewportMargin: Infinity
+            });
+
+            // Load saved layout preference
+            const savedLayout = localStorage.getItem('htmlCleanerLayout');
+            if (savedLayout === 'vertical') {
+                toggleLayout();
+            }
+        });
+
+        function showStatus(message, duration = 3000) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.classList.add('show');
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, duration);
+        }
+
+        function cleanHTML() {
+            const input = inputEditor.getValue().trim();
+            if (!input) {
+                showStatus('Please paste some HTML code first!');
+                return;
+            }
+
+            try {
+                const cleaned = processHTML(input);
+                outputEditor.setValue(cleaned);
+                showStatus('HTML cleaned successfully!');
+            } catch (error) {
+                showStatus('Error processing HTML: ' + error.message);
+            }
+        }
+
+        function processHTML(html) {
+            // Create a temporary DOM element to parse the HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+
+            // Remove all script tags
+            const scripts = tempDiv.querySelectorAll('script');
+            scripts.forEach(script => script.remove());
+
+            // Remove all style tags
+            const styles = tempDiv.querySelectorAll('style');
+            styles.forEach(style => style.remove());
+
+            // Remove all link tags (typically for CSS)
+            const links = tempDiv.querySelectorAll('link');
+            links.forEach(link => link.remove());
+
+            // Remove meta tags and other head elements
+            const metaTags = tempDiv.querySelectorAll('meta, title, base, noscript');
+            metaTags.forEach(meta => meta.remove());
+
+            // Remove all div and span tags but keep their content
+            function removeDivsAndSpans(element) {
+                const divsAndSpans = element.querySelectorAll('div, span');
+                divsAndSpans.forEach(elem => {
+                    // Move all child nodes to parent before removing the element
+                    while (elem.firstChild) {
+                        elem.parentNode.insertBefore(elem.firstChild, elem);
+                    }
+                    elem.remove();
+                });
+            }
+
+            removeDivsAndSpans(tempDiv);
+
+            // Define traditional HTML elements (semantic elements only)
+            const traditionalElements = new Set([
+                'html', 'head', 'body', 'title', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                'p', 'br', 'hr', 'strong', 'em', 'b', 'i', 'u', 's', 'small', 'sub', 'sup',
+                'a', 'img', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'table', 'thead', 'tbody',
+                'tfoot', 'tr', 'td', 'th', 'caption', 'form', 'input', 'textarea', 'select',
+                'option', 'label', 'button', 'fieldset', 'legend', 'blockquote', 'pre', 'code',
+                'address', 'cite', 'q', 'abbr', 'acronym', 'kbd', 'samp', 'var', 'dfn',
+                'article', 'section', 'nav', 'aside', 'header', 'footer', 'main', 'figure',
+                'figcaption', 'details', 'summary', 'mark', 'time'
+            ]);
+
+            // Remove non-traditional elements
+            function removeNonTraditionalElements(element) {
+                const allElements = element.querySelectorAll('*');
+                allElements.forEach(elem => {
+                    if (!traditionalElements.has(elem.tagName.toLowerCase())) {
+                        // Move all child nodes to parent before removing the element
+                        while (elem.firstChild) {
+                            elem.parentNode.insertBefore(elem.firstChild, elem);
+                        }
+                        elem.remove();
+                    }
+                });
+            }
+
+            removeNonTraditionalElements(tempDiv);
+
+            // Function to clean a single element
+            function cleanElement(element) {
+                if (element.nodeType === Node.ELEMENT_NODE) {
+                    // Remove ALL class and id attributes
+                    element.removeAttribute('class');
+                    element.removeAttribute('id');
+                    
+                    // Remove all style attributes
+                    element.removeAttribute('style');
+                    
+                    // Remove all event handler attributes
+                    const eventHandlers = [
+                        'onclick', 'onload', 'onunload', 'onchange', 'onsubmit', 'onreset',
+                        'onselect', 'onblur', 'onfocus', 'onkeydown', 'onkeypress', 'onkeyup',
+                        'onmousedown', 'onmouseup', 'onmouseover', 'onmousemove', 'onmouseout',
+                        'ondblclick', 'oncontextmenu', 'onmouseenter', 'onmouseleave',
+                        'ondrag', 'ondrop', 'ondragover', 'ondragstart', 'ondragend',
+                        'onscroll', 'onresize', 'onerror', 'onabort'
+                    ];
+                    
+                    eventHandlers.forEach(handler => {
+                        element.removeAttribute(handler);
+                    });
+
+                    // Remove all data attributes
+                    Array.from(element.attributes).forEach(attr => {
+                        if (attr.name.startsWith('data-')) {
+                            element.removeAttribute(attr.name);
+                        }
+                    });
+
+                    // Remove framework-specific and non-semantic attributes
+                    const removeAttrs = [
+                        'role', 'aria-label', 'aria-labelledby', 'aria-describedby', 'aria-hidden',
+                        'tabindex', 'contenteditable', 'draggable', 'dropzone', 'hidden',
+                        'spellcheck', 'translate', 'dir', 'lang', 'xml:lang', 'itemscope',
+                        'itemtype', 'itemprop', 'itemref', 'itemid', 'accesskey', 'contextmenu',
+                        'controls', 'autoplay', 'loop', 'muted', 'preload', 'poster'
+                    ];
+                    
+                    removeAttrs.forEach(attr => {
+                        element.removeAttribute(attr);
+                    });
+
+                    // Keep only essential attributes for certain elements
+                    const tagName = element.tagName.toLowerCase();
+                    const keepAttributes = {
+                        'a': ['href', 'target'],
+                        'img': ['src', 'alt', 'width', 'height'],
+                        'input': ['type', 'name', 'value', 'placeholder', 'required'],
+                        'textarea': ['name', 'rows', 'cols', 'placeholder', 'required'],
+                        'select': ['name', 'required'],
+                        'option': ['value', 'selected'],
+                        'label': ['for'],
+                        'form': ['action', 'method'],
+                        'table': ['border', 'cellpadding', 'cellspacing'],
+                        'td': ['colspan', 'rowspan'],
+                        'th': ['colspan', 'rowspan', 'scope']
+                    };
+
+                    if (keepAttributes[tagName]) {
+                        // Remove all attributes except the ones we want to keep
+                        Array.from(element.attributes).forEach(attr => {
+                            if (!keepAttributes[tagName].includes(attr.name)) {
+                                element.removeAttribute(attr.name);
+                            }
+                        });
+                    }
+
+                    // Recursively clean child elements
+                    Array.from(element.children).forEach(child => {
+                        cleanElement(child);
+                    });
+                }
+            }
+
+            // Clean all elements in the temporary div
+            Array.from(tempDiv.children).forEach(child => {
+                cleanElement(child);
+            });
+
+            // Get the cleaned HTML
+            let cleanedHTML = tempDiv.innerHTML;
+
+            // Remove HTML comments
+            cleanedHTML = cleanedHTML.replace(/<!--[\s\S]*?-->/g, '');
+
+            // Clean up extra whitespace while preserving structure
+            cleanedHTML = cleanedHTML.replace(/\s+/g, ' ');
+            cleanedHTML = cleanedHTML.replace(/>\s+</g, '><');
+            
+            // Format the HTML for better readability
+            cleanedHTML = formatHTML(cleanedHTML);
+
+            return cleanedHTML.trim();
+        }
+
+        function formatHTML(html) {
+            let formatted = '';
+            let indent = 0;
+            const tab = '  '; // 2 spaces
+            
+            // Split by tags
+            const tokens = html.match(/<\/?[^>]+>|[^<]+/g) || [];
+            
+            tokens.forEach(token => {
+                if (token.match(/<\/\w+>/)) {
+                    // Closing tag
+                    indent--;
+                    formatted += tab.repeat(Math.max(0, indent)) + token + '\n';
+                } else if (token.match(/<\w+[^>]*\/>/)) {
+                    // Self-closing tag
+                    formatted += tab.repeat(indent) + token + '\n';
+                } else if (token.match(/<\w+[^>]*>/)) {
+                    // Opening tag
+                    formatted += tab.repeat(indent) + token + '\n';
+                    if (!token.match(/<(br|hr|img|input|meta|link)[\s>]/i)) {
+                        indent++;
+                    }
+                } else if (token.trim()) {
+                    // Text content
+                    formatted += tab.repeat(indent) + token.trim() + '\n';
+                }
+            });
+            
+            return formatted;
+        }
+
+        function convertToMarkdown() {
+            const cleanHtml = outputEditor.getValue().trim();
+            if (!cleanHtml) {
+                showStatus('Please clean HTML first before converting to Markdown!');
+                return;
+            }
+
+            try {
+                const markdown = htmlToMarkdown(cleanHtml);
+                markdownEditor.setValue(markdown);
+                showStatus('HTML converted to Markdown successfully!');
+            } catch (error) {
+                showStatus('Error converting to Markdown: ' + error.message);
+            }
+        }
+
+        function htmlToMarkdown(html) {
+            // Create a temporary DOM element to parse the HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+
+            let markdown = '';
+
+            function processNode(node, depth = 0) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const text = node.textContent.trim();
+                    if (text) {
+                        markdown += text + ' ';
+                    }
+                    return;
+                }
+
+                if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+                const tagName = node.tagName.toLowerCase();
+                const indent = '  '.repeat(depth);
+
+                switch (tagName) {
+                    case 'h1':
+                        markdown += '\n# ';
+                        processChildren(node);
+                        markdown += '\n\n';
+                        break;
+                    case 'h2':
+                        markdown += '\n## ';
+                        processChildren(node);
+                        markdown += '\n\n';
+                        break;
+                    case 'h3':
+                        markdown += '\n### ';
+                        processChildren(node);
+                        markdown += '\n\n';
+                        break;
+                    case 'h4':
+                        markdown += '\n#### ';
+                        processChildren(node);
+                        markdown += '\n\n';
+                        break;
+                    case 'h5':
+                        markdown += '\n##### ';
+                        processChildren(node);
+                        markdown += '\n\n';
+                        break;
+                    case 'h6':
+                        markdown += '\n###### ';
+                        processChildren(node);
+                        markdown += '\n\n';
+                        break;
+                    case 'p':
+                        markdown += '\n';
+                        processChildren(node);
+                        markdown += '\n\n';
+                        break;
+                    case 'strong':
+                    case 'b':
+                        markdown += '**';
+                        processChildren(node);
+                        markdown += '**';
+                        break;
+                    case 'em':
+                    case 'i':
+                        markdown += '*';
+                        processChildren(node);
+                        markdown += '*';
+                        break;
+                    case 'u':
+                        markdown += '<u>';
+                        processChildren(node);
+                        markdown += '</u>';
+                        break;
+                    case 's':
+                        markdown += '~~';
+                        processChildren(node);
+                        markdown += '~~';
+                        break;
+                    case 'code':
+                        markdown += '`';
+                        processChildren(node);
+                        markdown += '`';
+                        break;
+                    case 'pre':
+                        markdown += '\n```\n';
+                        processChildren(node);
+                        markdown += '\n```\n\n';
+                        break;
+                    case 'blockquote':
+                        markdown += '\n> ';
+                        processChildren(node);
+                        markdown += '\n\n';
+                        break;
+                    case 'a':
+                        const href = node.getAttribute('href');
+                        if (href) {
+                            markdown += '[';
+                            processChildren(node);
+                            markdown += '](' + href + ')';
+                        } else {
+                            processChildren(node);
+                        }
+                        break;
+                    case 'img':
+                        const src = node.getAttribute('src');
+                        const alt = node.getAttribute('alt') || '';
+                        if (src) {
+                            markdown += '![' + alt + '](' + src + ')';
+                        }
+                        break;
+                    case 'ul':
+                        markdown += '\n';
+                        Array.from(node.children).forEach(li => {
+                            if (li.tagName.toLowerCase() === 'li') {
+                                markdown += '- ';
+                                processChildren(li);
+                                markdown += '\n';
+                            }
+                        });
+                        markdown += '\n';
+                        break;
+                    case 'ol':
+                        markdown += '\n';
+                        Array.from(node.children).forEach((li, index) => {
+                            if (li.tagName.toLowerCase() === 'li') {
+                                markdown += (index + 1) + '. ';
+                                processChildren(li);
+                                markdown += '\n';
+                            }
+                        });
+                        markdown += '\n';
+                        break;
+                    case 'table':
+                        markdown += '\n';
+                        processTable(node);
+                        markdown += '\n';
+                        break;
+                    case 'br':
+                        markdown += '  \n';
+                        break;
+                    case 'hr':
+                        markdown += '\n---\n\n';
+                        break;
+                    default:
+                        // For other elements, just process children
+                        processChildren(node);
+                        break;
+                }
+            }
+
+            function processChildren(node) {
+                Array.from(node.childNodes).forEach(child => {
+                    processNode(child);
+                });
+            }
+
+            function processTable(table) {
+                const rows = table.querySelectorAll('tr');
+                let isFirstRow = true;
+
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td, th');
+                    markdown += '| ';
+                    
+                    cells.forEach(cell => {
+                        processChildren(cell);
+                        markdown += ' | ';
+                    });
+                    
+                    markdown += '\n';
+
+                    // Add header separator for first row
+                    if (isFirstRow) {
+                        markdown += '| ';
+                        cells.forEach(() => {
+                            markdown += '--- | ';
+                        });
+                        markdown += '\n';
+                        isFirstRow = false;
+                    }
+                });
+            }
+
+            // Process all child nodes
+            Array.from(tempDiv.childNodes).forEach(node => {
+                processNode(node);
+            });
+
+            // Clean up extra whitespace and newlines
+            markdown = markdown.replace(/\n{3,}/g, '\n\n');
+            markdown = markdown.replace(/^\n+/, '');
+            markdown = markdown.replace(/\n+$/, '\n');
+            markdown = markdown.replace(/ +/g, ' ');
+
+            return markdown.trim();
+        }
+
+        function clearAll() {
+            inputEditor.setValue('');
+            outputEditor.setValue('');
+            markdownEditor.setValue('');
+            showStatus('Cleared all content');
+        }
+
+        function copyOutput(type) {
+            let output, outputName;
+            
+            if (type === 'markdown') {
+                output = markdownEditor.getValue();
+                outputName = 'Markdown';
+            } else {
+                output = outputEditor.getValue();
+                outputName = 'HTML';
+            }
+            
+            if (!output.trim()) {
+                showStatus(`No ${outputName.toLowerCase()} output to copy!`);
+                return;
+            }
+            
+            navigator.clipboard.writeText(output).then(() => {
+                showStatus(`${outputName} copied to clipboard!`);
+            }).catch(() => {
+                // Fallback for older browsers
+                const editor = type === 'markdown' ? markdownEditor : outputEditor;
+                editor.focus();
+                editor.execCommand('selectAll');
+                try {
+                    document.execCommand('copy');
+                    showStatus(`${outputName} copied to clipboard!`);
+                } catch (err) {
+                    showStatus('Failed to copy. Please select the text manually and copy.');
+                }
+            });
+        }
+
+        function toggleLayout() {
+            const mainContent = document.querySelector('.main-content');
+            const layoutIcon = document.getElementById('layoutIcon');
+            const layoutText = document.getElementById('layoutText');
+            
+            isVerticalLayout = !isVerticalLayout;
+            
+            if (isVerticalLayout) {
+                mainContent.classList.add('vertical-layout');
+                layoutIcon.innerHTML = `
+                    <svg viewBox="0 0 24 24">
+                        <rect x="3" y="2" width="4" height="20" rx="1"></rect>
+                        <rect x="10" y="2" width="4" height="20" rx="1"></rect>
+                        <rect x="17" y="2" width="4" height="20" rx="1"></rect>
+                    </svg>
+                `;
+                layoutText.textContent = 'Columns';
+                showStatus('Switched to vertical rows layout');
+                localStorage.setItem('htmlCleanerLayout', 'vertical');
+            } else {
+                mainContent.classList.remove('vertical-layout');
+                layoutIcon.innerHTML = `
+                    <svg viewBox="0 0 24 24">
+                        <rect x="2" y="3" width="20" height="4" rx="1"></rect>
+                        <rect x="2" y="10" width="20" height="4" rx="1"></rect>
+                        <rect x="2" y="17" width="20" height="4" rx="1"></rect>
+                    </svg>
+                `;
+                layoutText.textContent = 'Rows';
+                showStatus('Switched to horizontal columns layout');
+                localStorage.setItem('htmlCleanerLayout', 'horizontal');
+            }
+
+            // Refresh CodeMirror editors to adjust to new layout
+            setTimeout(() => {
+                inputEditor.refresh();
+                outputEditor.refresh();
+                markdownEditor.refresh();
+            }, 350); // Wait for CSS transition to complete
+        }
+    </script>
+</body>
+</html>
